@@ -10,4 +10,4 @@ servidor/doomgeneric/Debug/
 servidor/doomgeneric/Release/
 servidor/doomgeneric/Build/
 doomgeneric.map
-servidor/doomgeneric/doomgeneric/*Zone.Identifier
+servidor/doomgeneric/doomgeneric/*.Identifier
