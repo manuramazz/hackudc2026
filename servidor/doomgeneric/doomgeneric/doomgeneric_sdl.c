@@ -6,12 +6,32 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
+#include <zlib.h>
+#include <string.h>
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include <stdbool.h>
 #include <SDL.h>
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+#define MAX_PAYLOAD 1200  //MTU para paquetes UDP
+static uint32_t globalFrameId = 0;
+
+struct PacketHeader {
+    uint32_t frameId;
+    uint16_t chunkIndex;
+    uint16_t totalChunks;
+} __attribute__((packed)); // Evitar padding
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -19,101 +39,38 @@ SDL_Texture* texture;
 
 #define KEYQUEUE_SIZE 16
 
+#ifndef HARD_IP
+#define HARD_IP "10.64.151.154"
+#endif
+
 static unsigned short s_KeyQueue[KEYQUEUE_SIZE];
 static unsigned int s_KeyQueueWriteIndex = 0;
 static unsigned int s_KeyQueueReadIndex = 0;
 
-static unsigned char convertToDoomKey(unsigned int key){
-  switch (key)
-    {
-    case SDLK_RETURN:
-      key = KEY_ENTER;
-      break;
-    case SDLK_ESCAPE:
-      key = KEY_ESCAPE;
-      break;
-    case SDLK_LEFT:
-      key = KEY_LEFTARROW;
-      break;
-    case SDLK_RIGHT:
-      key = KEY_RIGHTARROW;
-      break;
-    case SDLK_UP:
-      key = KEY_UPARROW;
-      break;
-    case SDLK_DOWN:
-      key = KEY_DOWNARROW;
-      break;
-    case SDLK_LCTRL:
-    case SDLK_RCTRL:
-      key = KEY_FIRE;
-      break;
-    case SDLK_SPACE:
-      key = KEY_USE;
-      break;
-    case SDLK_LSHIFT:
-    case SDLK_RSHIFT:
-      key = KEY_RSHIFT;
-      break;
-    case SDLK_LALT:
-    case SDLK_RALT:
-      key = KEY_LALT;
-      break;
-    case SDLK_F2:
-      key = KEY_F2;
-      break;
-    case SDLK_F3:
-      key = KEY_F3;
-      break;
-    case SDLK_F4:
-      key = KEY_F4;
-      break;
-    case SDLK_F5:
-      key = KEY_F5;
-      break;
-    case SDLK_F6:
-      key = KEY_F6;
-      break;
-    case SDLK_F7:
-      key = KEY_F7;
-      break;
-    case SDLK_F8:
-      key = KEY_F8;
-      break;
-    case SDLK_F9:
-      key = KEY_F9;
-      break;
-    case SDLK_F10:
-      key = KEY_F10;
-      break;
-    case SDLK_F11:
-      key = KEY_F11;
-      break;
-    case SDLK_EQUALS:
-    case SDLK_PLUS:
-      key = KEY_EQUALS;
-      break;
-    case SDLK_MINUS:
-      key = KEY_MINUS;
-      break;
-    default:
-      key = tolower(key);
-      break;
-    }
+static uint8_t* prevFrameData = NULL;
 
-  return key;
-}
+static boolean enviarFrames = false;
+
+// Variables para UDP y TCP
+//char HARD_IP[INET_ADDRSTRLEN]; // IP del cliente para UDP
+int udpSock;                  
+struct sockaddr_in clientAddr; 
+socklen_t clientAddrLen;  
+int clientSock = -1;
+int tcpSock = -1;
+
 
 static void addKeyToQueue(int pressed, unsigned int keyCode){
-  unsigned char key = convertToDoomKey(keyCode);
+  //unsigned char key = convertToDoomKey(keyCode);
 
-  unsigned short keyData = (pressed << 8) | key;
+  unsigned short keyData = (pressed << 8) | keyCode;
 
   s_KeyQueue[s_KeyQueueWriteIndex] = keyData;
   s_KeyQueueWriteIndex++;
   s_KeyQueueWriteIndex %= KEYQUEUE_SIZE;
 }
 
+/*
 static void handleKeyInput(){
   SDL_Event e;
   while (SDL_PollEvent(&e)){
@@ -133,51 +90,326 @@ static void handleKeyInput(){
     }
   }
 }
+*/
 
-size_t compressFrame(uint32_t* frameData, uint8_t** compressedData) {
-    // Implementa aquí tu algoritmo de compresión (por ejemplo, RLE)
-    // Para este ejemplo, simplemente vamos a copiar los datos sin comprimir
-    size_t dataSize = DOOMGENERIC_RESX * DOOMGENERIC_RESY * sizeof(uint32_t);
-    *compressedData = malloc(dataSize);
-    if (*compressedData == NULL) {
-        fprintf(stderr, "Error reservando memoria para compressedData\n");
-        exit(1);
+static void handleKeyInput()
+{
+    printf("Checking for TCP input frame %u\n", globalFrameId);
+    if (tcpSock < 0) {
+        fprintf(stderr, "handleKeyInputTCP: socket no inicializado\n");
+        return;
     }
-    memcpy(*compressedData, frameData, dataSize);
-    return dataSize;
+
+    char buf[64]; // Esperamos 2 bytes exactos
+    //printf("esperando mamada TCP...\n");
+    //Recv no bloqueante: si no hay datos, retorna -1 con errno EWOULDBLOCK o EAGAIN
+    ssize_t n = recv(tcpSock, buf, 2, MSG_PEEK | MSG_DONTWAIT);
+    //printf("recv() returned %zd bytes\n", n);
+    if (n < 2) {
+        // No hay suficientes bytes (0 o 1). Volvemos en el siguiente frame.
+        if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+            perror("Error en socket");
+        }
+        return; 
+    }
+
+    if (n == 0) {
+        // Conexión cerrada por el cliente
+        printf("Cliente cerró la conexión TCP\n");
+        close(tcpSock);
+        tcpSock = -1;
+        return;
+    }
+
+    if (n != 2) {
+        printf("Paquete TCP de tamaño inesperado: %zd bytes\n", n);
+        return;
+    }
+    printf("recv() returned %zd bytes\n", n);
+    unsigned char keycode = (unsigned char)buf[0];
+    int pressed = (int)buf[1];
+
+    if (pressed == 0 || pressed == 1) {
+        addKeyToQueue(pressed, keycode);
+        printf("Input TCP recibido: pressed=%d keycode=%u\n", pressed, keycode);
+    } else {
+        printf("Valor de pressed inválido TCP: %d\n", pressed);
+    }
 }
 
-// Variables para UDP
-extern int udpSock;                  
-extern struct sockaddr_in clientAddr; 
-extern socklen_t clientAddrLen;  
-char ip_client[17];     
+size_t compressFrameASCII(uint32_t* frameData, uint8_t** compressedData)
+{
+    int width = DOOMGENERIC_RESX;
+    int height = DOOMGENERIC_RESY;
+
+    // Cada pixel: 1 byte combinación intensidad + color
+    *compressedData = malloc(width * height);
+    if (*compressedData == NULL) { exit(1); }
+
+    for (int i = 0; i < width * height; i++) {
+        uint32_t pixel = frameData[i];
+
+        // Separar RGB
+        uint8_t r = (pixel >> 16) & 0xFF;
+        uint8_t g = (pixel >> 8) & 0xFF;
+        uint8_t b = pixel & 0xFF;
+        uint8_t r4 = r >> 4;
+        uint8_t g4 = g >> 4; 
+        uint8_t b4 = b >> 4; 
+
+        // Combina usando 4 bits
+        uint8_t color = (r4 + g4 + b4) / 3;
+
+        // Intensidad aproximada: 0-15 (4 bits)
+        uint8_t intensity = (r + g + b) / 48;  // 0-15
+        if (intensity > 15) intensity = 15;
+
+        // Color: usa 4 bits para rojo+verde+azul de forma simplificada
+        color = ((r & 0xF0) >> 4) | (g & 0xF0) | ((b & 0xF0) >> 4);
+
+        uint8_t byte = (intensity << 4) | (color & 0x0F);
+        (*compressedData)[i] = byte;       // Intensidad + color
+    }
+
+    return height * width;
+}
+
+size_t compressFrameASCII_2x2(uint32_t* frameData, uint8_t** compressedData)
+{
+    int width = DOOMGENERIC_RESX;
+    int height = DOOMGENERIC_RESY;
+
+    int newWidth = width / 2;
+    int newHeight = height / 2;
+
+    *compressedData = malloc(newWidth * newHeight);
+    if (*compressedData == NULL) { exit(1); }
+
+    int outIndex = 0;
+
+    for (int y = 0; y < height; y += 2)
+    {
+        for (int x = 0; x < width; x += 2)
+        {
+            uint32_t sumR = 0, sumG = 0, sumB = 0;
+
+            // Sumar los 4 píxeles del bloque 2x2
+            for (int dy = 0; dy < 2; dy++)
+                for (int dx = 0; dx < 2; dx++) {
+                    uint32_t p = frameData[(y+dy)*width + (x+dx)];
+                    sumR += (p >> 16) & 0xFF;
+                    sumG += (p >> 8) & 0xFF;
+                    sumB += p & 0xFF;
+                }
+
+            // Promedios
+            uint8_t r = sumR >> 2;
+            uint8_t g = sumG >> 2;
+            uint8_t b = sumB >> 2;
+
+            // Intensidad promedio a partir de valores RGB
+            uint8_t intensity = (r + g + b) / 3; 
+            uint8_t i2 = intensity >> 6;        
+
+            // Reducir RGB a 2 bits cada uno
+            uint8_t r2 = r >> 6; // 0..3
+            uint8_t g2 = g >> 6;
+            uint8_t b2 = b >> 6;
+
+            // Combinamos todo en un byte
+            (*compressedData)[outIndex++] = (i2 << 6) | (r2 << 4) | (g2 << 2) | b2;
+        }
+    }
+
+    return newWidth * newHeight;
+}
+
+size_t deltaDataFunc(uint8_t* compressedData, uint8_t** deltaOut) {
+  size_t deltaSize = 0;
+  uint8_t* delta = malloc(sizeof(uint8_t) * DOOMGENERIC_RESX * DOOMGENERIC_RESY*3);
+  if (!delta) exit(1);
+
+  for (size_t i = 0; i < DOOMGENERIC_RESX * DOOMGENERIC_RESY; i++) {
+        if (compressedData[i] != prevFrameData[i]) {
+            uint16_t idx = (uint16_t)i;              // si frameSize > 65535, usa uint32_t
+            delta[deltaSize++] = idx & 0xFF;        // byte bajo del índice
+            delta[deltaSize++] = (idx >> 8) & 0xFF;
+            delta[deltaSize++] = compressedData[i];
+      }
+      if(i<10) {
+        printf("Pixel %d: current=%02X prev=%02X\n", i, compressedData[i], prevFrameData[i]);
+      }
+  }
+  
+  *deltaOut = delta;
+  printf("Delta size: %zu bytes\n", deltaSize);
+  if(deltaSize > 0) {
+    printf("DELTA MODIFICADO ejemplo: índice %d valor %02X\n", delta[0], delta[1]);
+  } 
+  return deltaSize;
+}
+
+size_t compressRLE(uint8_t* data, size_t dataSize, uint8_t** out) {
+    *out = malloc(dataSize * 2);
+    if (!*out) exit(1);
+
+    size_t outIndex = 0;
+    for (uint32_t i = 0; i < dataSize;) {
+        uint8_t value = data[i];
+        size_t runLength = 1;
+
+        while (i + runLength < dataSize && data[i + runLength] == value && runLength < 255) {
+            runLength++;
+        }
+
+        (*out)[outIndex++] = value;
+        (*out)[outIndex++] = (uint8_t)runLength;
+
+        i += runLength;
+    }
+
+    return outIndex; // tamaño final comprimido
+}
+
+size_t compressFrame(uint32_t* frameData, uint8_t** compressedData) {
+    //printf("Comprimiendo frame... DG_ScreenBuffer=%p\n", (void*)frameData);
+
+    // Comprimir a ASCII 2x2
+    uint8_t* asciiData = NULL;
+    size_t asciiSize = compressFrameASCII_2x2(frameData, &asciiData);
+    //printf("Frame comprimido a ASCII de %zu bytes\n", asciiSize);
+
+    // Comprimir con zlib
+    uLongf zlibMaxSize = compressBound(asciiSize);
+    uint8_t* zlibBuffer = malloc(zlibMaxSize);
+    if (!zlibBuffer) { free(asciiData); exit(1); }
+
+    int res = compress2(zlibBuffer, &zlibMaxSize, asciiData, asciiSize, 8);
+    if (res != Z_OK) {
+        fprintf(stderr, "Error comprimiendo frame con zlib: %d\n", res);
+        free(asciiData);
+        free(zlibBuffer);
+        exit(1);
+    }
+
+    free(asciiData);
+    *compressedData = zlibBuffer;
+    //printf("Frame comprimido con zlib a %lu bytes\n", zlibMaxSize);
+
+    return (size_t)zlibMaxSize;
+}
+
+int initTCP(int port) {
+    struct sockaddr_in serverAddr;
+
+    // 1. Crear el socket
+    tcpSock = socket(AF_INET, SOCK_STREAM, 0);
+    if (tcpSock < 0) { 
+        perror("Error creando socket TCP"); 
+        exit(1); 
+    }
+
+    // 2. Configurar la dirección del servidor (Java)
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(port);
+    
+    // Convertir la IP de texto a binario
+    if (inet_pton(AF_INET, HARD_IP, &serverAddr.sin_addr) <= 0) {
+        fprintf(stderr, "Dirección IP inválida: %s\n", HARD_IP);
+        return -1;
+    }
+
+    printf("Intentando conectar al servidor Java en %s:%d...\n", HARD_IP, port);
+
+    // 3. Connect (Bloqueante hasta que conecte o falle)
+    if (connect(tcpSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+        perror("Error en connect TCP (¿Está Java encendido?)");
+        close(tcpSock);
+        tcpSock = -1;
+        return -1;
+    }
+
+    // 4. Modo No Bloqueante
+    int flags = fcntl(tcpSock, F_GETFL, 0);
+    fcntl(tcpSock, F_SETFL, flags | O_NONBLOCK);
+
+    // En el modo cliente, el socket que usas para enviar es el mismo tcpSock
+    clientSock = tcpSock; 
+
+    printf("¡Conectado exitosamente al servidor Java!\n");
+    return 0;
+}
 
 void initUDP() {
     udpSock = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpSock < 0) { perror("socket"); exit(1); }
 
-    struct sockaddr_in clientAddr;
     clientAddr.sin_family = AF_INET;
-    clientAddr.sin_port = htons(5000); // puerto del cliente
-    inet_pton(AF_INET, ip_client, &clientAddr.sin_addr);
-
+    clientAddr.sin_port = htons(5001); // puerto del cliente
+    inet_pton(AF_INET, HARD_IP, &clientAddr.sin_addr);
+    printf("Iniciado servicio UDP en puerto 5001 con cliente %s...\n", HARD_IP);
     clientAddrLen = sizeof(clientAddr);
 }
 
+
 void sendFrameUDP(uint8_t* data, size_t dataSize) {
+    
     ssize_t sentBytes = sendto(udpSock, data, dataSize, 0,
                                (struct sockaddr*)&clientAddr, clientAddrLen);
     if (sentBytes < 0) {
         perror("Error enviando frame UDP");
     } else if ((size_t)sentBytes != dataSize) {
         fprintf(stderr, "Advertencia: se enviaron %zd de %zu bytes\n", sentBytes, dataSize);
+    }else{
+      // Printear uno de cada 10 frames
+       static int frameCount = 0;
+       frameCount++;
+        //printf("Frame de %zu bytes enviado por UDP\n", sentBytes);
+        if(frameCount == 0) {
+            
+        }
     }
 }
 
-void handleRemoteInput() {
-    
+
+void sendFrameUDPFragmentado(uint8_t* data, size_t dataSize) {
+    // Calcular número de paquetes
+    uint16_t totalChunks = (dataSize + MAX_PAYLOAD - 1) / MAX_PAYLOAD;
+    printf("Enviando frame %u en %u chunks, total bytes=%zu\n", globalFrameId, totalChunks, dataSize);
+
+    for (uint16_t chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        size_t offset = chunkIndex * MAX_PAYLOAD;
+        size_t chunkSize = (dataSize - offset > MAX_PAYLOAD) ? MAX_PAYLOAD : (dataSize - offset);
+
+        // Crear buffer con header + payload
+        uint8_t* packet = malloc(sizeof(struct PacketHeader) + chunkSize);
+        if (!packet) { perror("malloc packet"); exit(1); }
+
+        struct PacketHeader* hdr = (struct PacketHeader*)packet;
+        hdr->frameId = htonl(globalFrameId);
+        hdr->chunkIndex = htons(chunkIndex);
+        hdr->totalChunks = htons(totalChunks);
+
+        memcpy(packet + sizeof(struct PacketHeader), data + offset, chunkSize);
+
+        ssize_t sentBytes = sendto(udpSock, packet, sizeof(struct PacketHeader) + chunkSize, 0,
+                                   (struct sockaddr*)&clientAddr, clientAddrLen);
+        if (sentBytes < 0) {
+            perror("Error enviando chunk UDP");
+        } else if ((size_t)sentBytes != sizeof(struct PacketHeader) + chunkSize) {
+            fprintf(stderr, "Advertencia: se enviaron %zd de %zu bytes\n", sentBytes, sizeof(struct PacketHeader) + chunkSize);
+        } else {
+            //printf("Chunk %u/%u enviado, tamaño %zu bytes\n", chunkIndex, totalChunks, chunkSize);
+        }
+
+        free(packet);
+    }
+
+    // Incrementar frameId para el siguiente frame
+    globalFrameId++;
 }
+
 
 
 void DG_Init(){
@@ -185,26 +417,53 @@ void DG_Init(){
   //Reserva de memoria para el buffer de pantalla
   // Solo reservar memoria para el buffer de pantalla
     DG_ScreenBuffer = malloc(DOOMGENERIC_RESX * DOOMGENERIC_RESY * sizeof(uint32_t));
-
+    printf("Resolución: %dx%d\n", DOOMGENERIC_RESX, DOOMGENERIC_RESY);
     if (DG_ScreenBuffer == NULL) {
         fprintf(stderr, "Error reservando memoria para DG_ScreenBuffer\n");
         exit(1);
-    }
+    }else {
+    //("DG_ScreenBuffer=%p\n", (void*)DG_ScreenBuffer);
+}
 }
 
+size_t compressFrameDefault(uint32_t* frameData, uint8_t** compressedData) {
+    *compressedData = malloc(DOOMGENERIC_RESX * DOOMGENERIC_RESY / 2000);
+    if (*compressedData == NULL) { exit(1); }
+    //Copiar el frame sin comprimir (solo para pruebas)
+    for (long int i = 0; i < DOOMGENERIC_RESX * DOOMGENERIC_RESY / 2000; i++) {
+        (*compressedData)[i] = (uint8_t)(frameData[i] & 0xFF); // Solo el canal azul como ejemplo
+    }
+    return DOOMGENERIC_RESX * DOOMGENERIC_RESY / 2000;
+}
+
+static boolean udpIniciado = false;
+static boolean tcpIniciado = false;
 void DG_DrawFrame()
 {
+  if (!enviarFrames) {
+    return; // No enviar frames hasta el primer tick
+  }
+  if(!tcpIniciado) {
+    initTCP(5555);
+    tcpIniciado = true;
+  }
+  if(!udpIniciado) {
+    initUDP();
+    udpIniciado = true;
+  }
+  
   // Comprimir frame
   uint8_t* compressedFrame;
   size_t size = compressFrame(DG_ScreenBuffer, &compressedFrame);
-
+  //size_t size = compressFrameDefault(DG_ScreenBuffer, &compressedFrame);
+  //("Frame comprimido a %zu bytes\n", size);
   // Enviar por UDP al cliente
-  sendFrameUDP(compressedFrame, size);
+  sendFrameUDPFragmentado(compressedFrame, size);
 
   free(compressedFrame);
 
   // Procesar inputs que llegan del cliente
-  handleRemoteInput();
+  handleKeyInput();
 }
 
 void DG_SleepMs(uint32_t ms)
@@ -245,20 +504,27 @@ void DG_SetWindowTitle(const char * title)
 
 int main(int argc, char **argv)
 {
+    if(!tcpIniciado) {
+        initTCP(5555);
+    }
+    if(!udpIniciado) {
+        initUDP();
+    }
+    
     doomgeneric_Create(argc, argv);
-    initUDP();
-    size32_t FPS = 10;
+    uint8_t FPS = 2;
     for (int i = 0; ; i++)
     {
-        size32_t frameStartTime = DG_GetTicksMs();
-
+        uint32_t frameStartTime = DG_GetTicksMs();
+        enviarFrames = true;
         doomgeneric_Tick();
 
-        size32_t frameTime = DG_GetTicksMs() - frameStartTime;
-        size32_t sleepTime = (1000 / FPS) - frameTime;
+        uint32_t frameTime = DG_GetTicksMs() - frameStartTime;
+        uint32_t sleepTime = (1000 / FPS) - frameTime;
         if (sleepTime > 0) {
             DG_SleepMs(sleepTime);
         }
+        //printf("Tick %d: DG_ScreenBuffer=%p\n espera=%d ms\n", i, (void*)DG_ScreenBuffer, sleepTime);
     }
     
 
