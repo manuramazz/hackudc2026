@@ -1,0 +1,13 @@
+servidor/doomgeneric/*.o
+servidor/doomgeneric/*.obj
+servidor/doomgeneric/*.exe
+servidor/doomgeneric/*.DS_Store
+servidor/doomgeneric/*.log
+servidor/doomgeneric/*.user
+servidor/doomgeneric/*~
+servidor/doomgeneric/.vs/
+servidor/doomgeneric/Debug/
+servidor/doomgeneric/Release/
+servidor/doomgeneric/Build/
+doomgeneric.map
+servidor/doomgeneric/doomgeneric/*.Identifier
