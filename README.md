@@ -43,11 +43,8 @@ Punto de extensión para FPGA:
 
 ## Arquitectura
 
-        (Uplink - TCP)                 (Downlink - UDP)
+<img width="881" height="281" alt="diagramaDOOMSat drawio" src="https://github.com/user-attachments/assets/99b0d7d2-314c-4d39-b359-d06c48a89c91" />
 
-[Cliente Tierra] ───────────▶ [Servidor Satélite] ───────────▶ [Cliente Tierra]
-
-            (Proxy / Link Emulator entre medias para tests)
 
 
 - **Servidor (C)**: captura frame del motor, preprocesa, comprime y envía.
