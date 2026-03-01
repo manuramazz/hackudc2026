@@ -148,7 +148,8 @@ public final class DoomKeyMapper {
 
         return new byte[] {
                 doomKey,
-                (byte) (pressed ? 1 : 0)
+                (byte) (pressed ? 1 : 0),
+                (byte)'\0'
         };
     }
 }

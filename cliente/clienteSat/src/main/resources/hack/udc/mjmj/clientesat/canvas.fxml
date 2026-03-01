@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.AnchorPane?>
 
 <AnchorPane xmlns:fx="http://javafx.com/fxml"
-            fx:controller="hack.udc.mjmj.clientesat.HelloController">
+            fx:controller="hack.udc.mjmj.clientesat.CanvasController">
 
     <Canvas fx:id="canvas"
             width="320"
