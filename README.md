@@ -124,8 +124,10 @@ make CC=aarch64-linux-gnu-gcc   CFLAGS="--sysroot=$SYSROOT -isystem $SYSROOT/usr
 qemu-aarch64 -L /opt/arm64-rootfs ./doomgeneric -iwad ../Doom1.WAD -warp 1 1
 ```
 ### 2) Ejecutar el cliente (Java)
+Desde la terminal en el directorio del proyecto
 ```bash
-polla
+.\gradlew build
+.\gradlew run
 ```
 ### 3) Ejecutar el proxy (solo en caso de querer simularse condiciones de prueba)
 ```bash
