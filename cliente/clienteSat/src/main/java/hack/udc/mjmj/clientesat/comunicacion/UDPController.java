@@ -112,35 +112,30 @@ public class UDPController {
     }
 
 
-    private void processCompleteFrame(byte[] compressed) {
+    private void processCompleteFrame(byte[] compressed) throws Exception {
+
         Inflater inflater = new Inflater();
-        // try-with-resources para el stream de salida
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream(160 * 100)) {
+        inflater.setInput(compressed);
 
-            inflater.setInput(compressed);
-            byte[] buffer = new byte[4096]; // Buffer estándar de 4KB es más eficiente
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[160*100];
 
-            while (!inflater.finished()) {
-                int count = inflater.inflate(buffer);
-                if (count == 0 && inflater.needsInput()) break; // Evita bucles infinitos
-                out.write(buffer, 0, count);
-            }
-
-            byte[] decompressed = out.toByteArray();
-
-            if (decompressed.length != 160 * 100) {
-                System.err.println("FRAME CORRUPTO: Tamaño obtenido = " + decompressed.length);
-                return;
-            }
-
-            // Renderizar en el hilo de UI
-            Platform.runLater(() -> render(decompressed));
-
-        } catch (Exception e) {
-            System.err.println("Error al descomprimir: " + e.getMessage());
-        } finally {
-            inflater.end(); // LIBERA MEMORIA NATIVA SIEMPRE
+        while (!inflater.finished()) {
+            int count = inflater.inflate(buffer);
+            out.write(buffer, 0, count);
         }
+
+        inflater.end();
+
+        byte[] decompressed = out.toByteArray();
+
+        if (decompressed.length != 160 * 100) {
+            System.out.println("CORRUPTOOOOOOOOOOO NOOOOOO!!!!!!!!!!!!! tam = "+decompressed.length);
+
+            return; // frame corrupto
+        }
+
+        Platform.runLater(() -> render(decompressed));
     }
 
 
@@ -186,7 +181,7 @@ public class UDPController {
         );
 
         GraphicsContext gc = canvas.getGraphicsContext2D();
-        gc.drawImage(image, 0, 0, 160 * 2, 100 * 2);
+        gc.drawImage(image, 0, 0, 160 * 4, 100 * 4);
     }
 
 

@@ -9,7 +9,7 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 
-public class HelloApplication extends Application {
+public class ClientApplication extends Application {
 
     private UDPController udp;
     private TCPController tcp;
@@ -17,9 +17,9 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         FXMLLoader fxmlLoader =
-                new FXMLLoader(HelloApplication.class.getResource("canvas.fxml"));
+                new FXMLLoader(ClientApplication.class.getResource("canvas.fxml"));
 
-        Scene scene = new Scene(fxmlLoader.load(), 320, 240);
+        Scene scene = new Scene(fxmlLoader.load(), 640, 400);
 
         CanvasController controller = fxmlLoader.getController();
 

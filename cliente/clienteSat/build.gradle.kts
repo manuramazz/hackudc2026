@@ -27,7 +27,7 @@ tasks.withType<JavaCompile> {
 
 application {
     mainModule.set("hack.udc.mjmj.clientesat")
-    mainClass.set("hack.udc.mjmj.clientesat.HelloApplication")
+    mainClass.set("hack.udc.mjmj.clientesat.ClientApplication")
 }
 
 javafx {
