@@ -11,10 +11,10 @@ else
 	VB=@
 endif
 
-#CC = aarch64-linux-gnu-gcc
-#LD = aarch64-linux-gnu-ld
-#AS = aarch64-linux-gnu-as
-CC=clang  # gcc or g++
+CC = aarch64-linux-gnu-gcc
+LD = aarch64-linux-gnu-ld
+AS = aarch64-linux-gnu-as
+#CC=clang  # gcc or g++
 CFLAGS+=-ggdb3 -Os
 LDFLAGS+=-Wl,--gc-sections
 CFLAGS+=-ggdb3 -Wall -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE $(shell sdl2-config --cflags)

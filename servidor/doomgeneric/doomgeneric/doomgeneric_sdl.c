@@ -92,48 +92,68 @@ static void handleKeyInput(){
 }
 */
 
-static void handleKeyInput()
+static void handleKeyInput(void)
 {
-    printf("Checking for TCP input frame %u\n", globalFrameId);
-    if (tcpSock < 0) {
-        fprintf(stderr, "handleKeyInputTCP: socket no inicializado\n");
-        return;
-    }
+    if (tcpSock < 0) return;
 
-    char buf[64]; // Esperamos 2 bytes exactos
-    //printf("esperando mamada TCP...\n");
-    //Recv no bloqueante: si no hay datos, retorna -1 con errno EWOULDBLOCK o EAGAIN
-    ssize_t n = recv(tcpSock, buf, 2, MSG_PEEK | MSG_DONTWAIT);
-    //printf("recv() returned %zd bytes\n", n);
-    if (n < 2) {
-        // No hay suficientes bytes (0 o 1). Volvemos en el siguiente frame.
-        if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-            perror("Error en socket");
+    // Buffer de ensamblado: TCP puede entregar 1, 2 o 3 bytes en lecturas distintas
+    static uint8_t inbuf[3];
+    static size_t have = 0;
+
+    // Lee todo lo disponible sin bloquear, hasta completar mensajes de 3 bytes
+    for (;;) {
+        ssize_t n = recv(tcpSock, inbuf + have, 3 - have, MSG_DONTWAIT);
+
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // No hay más datos ahora mismo
+                return;
+            }
+            perror("recv(tcpSock)");
+            // Si quieres, podrías cerrar aquí, pero mejor solo loguear
+            return;
         }
-        return; 
-    }
 
-    if (n == 0) {
-        // Conexión cerrada por el cliente
-        printf("Cliente cerró la conexión TCP\n");
-        close(tcpSock);
-        tcpSock = -1;
-        return;
-    }
+        if (n == 0) {
+            // Conexión cerrada por el peer
+            printf("TCP cerrado por el cliente\n");
+            close(tcpSock);
+            tcpSock = -1;
+            have = 0;
+            return;
+        }
 
-    if (n != 2) {
-        printf("Paquete TCP de tamaño inesperado: %zd bytes\n", n);
-        return;
-    }
-    printf("recv() returned %zd bytes\n", n);
-    unsigned char keycode = (unsigned char)buf[0];
-    int pressed = (int)buf[1];
+        have += (size_t)n;
 
-    if (pressed == 0 || pressed == 1) {
-        addKeyToQueue(pressed, keycode);
-        printf("Input TCP recibido: pressed=%d keycode=%u\n", pressed, keycode);
-    } else {
-        printf("Valor de pressed inválido TCP: %d\n", pressed);
+        // Si aún no tenemos un paquete completo, vuelve a intentar en el próximo frame
+        if (have < 3) {
+            return;
+        }
+
+        // Tenemos 3 bytes: [keycode][pressed][0]
+        uint8_t keycode = inbuf[0];
+        uint8_t pressed = inbuf[1];
+        uint8_t term    = inbuf[2];
+
+        // Reset para el siguiente mensaje
+        have = 0;
+
+        // Validación del paquete
+        if (term != 0) {
+            // Desincronización: descarta y sigue (o resync si quieres)
+            printf("Paquete inválido: term=%u (esperado 0)\n", (unsigned)term);
+            continue;
+        }
+
+        if (pressed == 0 || pressed == 1) {
+            addKeyToQueue((int)pressed, (unsigned int)keycode);
+            // Debug opcional:
+            //printf("Input TCP: key=%u pressed=%u\n", keycode, pressed);
+        } else {
+            printf("Paquete inválido: pressed=%u\n", (unsigned)pressed);
+        }
+
+        // Sigue el bucle por si llegaron más bytes (varios paquetes juntos)
     }
 }
 
@@ -456,10 +476,6 @@ void DG_DrawFrame()
   size_t size = compressFrame(DG_ScreenBuffer, &compressedFrame);
   //size_t size = compressFrameDefault(DG_ScreenBuffer, &compressedFrame);
   printf("Frame comprimido a %zu bytes\n", size);
-  printf("Contenido del frame comprimido (primeros 500 bytes): ");
-  for (size_t i = 0; i < size && i < 500; i++) {
-    printf("%02x ", compressedFrame[i]);
-  }
   printf("\n");
   // Enviar por UDP al cliente
   sendFrameUDPFragmentado(compressedFrame, size);
@@ -510,13 +526,14 @@ int main(int argc, char **argv)
 {
     if(!tcpIniciado) {
         initTCP(5555);
+        tcpIniciado=true;
     }
     if(!udpIniciado) {
         initUDP();
     }
     
     doomgeneric_Create(argc, argv);
-    uint8_t FPS = 1;
+    uint8_t FPS = 15;
     for (int i = 0; ; i++)
     {
         uint32_t frameStartTime = DG_GetTicksMs();
