@@ -5,6 +5,7 @@ servidor/doomgeneric/*.DS_Store
 servidor/doomgeneric/*.log
 servidor/doomgeneric/*.user
 servidor/doomgeneric/*~
+servidor/doomgeneric/*.WAD
 servidor/doomgeneric/.vs/
 servidor/doomgeneric/Debug/
 servidor/doomgeneric/Release/
