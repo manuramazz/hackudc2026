@@ -120,8 +120,12 @@ Desde la terminal en el directorio del proyecto
 .\gradlew run
 ```
 ### 3) Ejecutar el proxy (solo en caso de querer simularse condiciones de prueba)
+Tiene que ser ejecutado en el directorio /proxy en una distribución linux.
+En firewall.sh es preciso ajustar las direcciones IP
 ```bash
-pene
+chmod +x firewall.sh simulacion.sh
+./firewall.sh
+./simulación.sh
 ```
 
 ## Rendimiento esperado (orden de magnitud)
