@@ -25,5 +25,7 @@
          <Font name="Bell MT Bold" size="48.0" />
       </font>
    </Label>
+   <Label fx:id="labelFps" layoutX="567.0" layoutY="14.0" prefHeight="18.0" prefWidth="63.0" text="FPS:  13" textFill="#80a962" />
+   <Label fx:id="labelMbps" layoutX="567.0" layoutY="31.0" prefHeight="18.0" prefWidth="86.0" text="Mbps: 0.543" textFill="#80a962" />
 
 </AnchorPane>

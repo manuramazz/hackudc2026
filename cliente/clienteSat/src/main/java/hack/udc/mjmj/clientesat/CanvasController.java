@@ -19,8 +19,15 @@ public class CanvasController {
     private Label label;
 
     @FXML
+    private Label labelFps;
+    @FXML
+    private Label labelMbps;
+
+    @FXML
     public void initialize() {
         canvas.getGraphicsContext2D().setImageSmoothing(false);
+        labelFps.setVisible(false);
+        labelMbps.setVisible(false);
     }
 
     public Canvas getCanvas() {return canvas;}
@@ -33,6 +40,14 @@ public class CanvasController {
         label.setManaged(false);
         imagen.setManaged(false);
         imagenLogo.setManaged(false);
+
+        labelMbps.setVisible(true);
+        labelFps.setVisible(true);
+    }
+
+    public void updateLabels(double fps, double mbps) {
+        labelFps.setText(String.format("FPS: %.1f", fps));
+        labelMbps.setText(String.format("Mbps: %.2f", mbps));
     }
 
 }

@@ -24,6 +24,15 @@ public class UDPController {
     private PackageBuffer activeFrame = null;
     private int lastCompletedFrameId = -1;
 
+    // Contadores de métricas
+    private int frameCount = 0;
+    private long bytesReceivedInSecond = 0;
+    private long lastMetricsTime = System.currentTimeMillis();
+
+    // Valores calculados
+    private double fps = 0;
+    private double mbps = 0;
+
     WritableImage image = new WritableImage(160, 100);
     PixelWriter pw = image.getPixelWriter();
     int[] argbBuffer = new int[160 * 100];
@@ -53,6 +62,8 @@ public class UDPController {
                 packet = new DatagramPacket(new byte[1208], 1208);
                 while(encendido){
                     socket.receive(packet);
+                    bytesReceivedInSecond += packet.getLength();
+
                     if (!elementosOcultos && controller != null) {
                         elementosOcultos = true;
                         Platform.runLater(() -> {
@@ -102,9 +113,32 @@ public class UDPController {
                 byte[] fullFrame = assemble(activeFrame);
                 activeFrame = null;
                 lastCompletedFrameId = frameId;
-                /*System.out.println("Frame: "+frameId+" tam: "+fullFrame.length+" content: ");
-                for(int i=0; i<fullFrame.length; i++){System.out.print(fullFrame[i]+"  ");}
-                System.out.println();*/
+                // --- CÁLCULO DE MÉTRICAS ---
+                frameCount++;
+                long currentTime = System.currentTimeMillis();
+                long elapsedTime = currentTime - lastMetricsTime;
+
+                if (elapsedTime >= 1000) { // Ha pasado 1 segundo (o un poco más)
+                    fps = (frameCount * 1000.0) / elapsedTime;
+                    // Convertimos bytes a Megabits por segundo (Mbps) o Megabytes (MB/s)
+                    // Usaremos MB/s que es más intuitivo para archivos/red
+                    mbps = (bytesReceivedInSecond / 1024.0 / 1024.0) / (elapsedTime / 1000.0);
+
+                    // Enviamos al controller (IMPORTANTE: final para usar en el lambda)
+                    final double finalFps = fps;
+                    final double finalMbps = mbps;
+
+                    if (controller != null) {
+                        Platform.runLater(() -> {
+                            controller.updateLabels(finalFps, finalMbps);
+                        });
+                    }
+
+                    // Reiniciamos contadores para el siguiente segundo
+                    frameCount = 0;
+                    bytesReceivedInSecond = 0;
+                    lastMetricsTime = currentTime;
+                }
                 processCompleteFrame(fullFrame);
             }
         }
