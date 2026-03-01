@@ -19,25 +19,19 @@ Ejecutamos el motor de DOOM en una plataforma **AArch64 “space-grade”** y ha
 
 ### 2) Misión: definición y asunciones — 30%
 Para pruebas asumimos un escenario tipo **LEO (órbita baja)**:
-- **Downlink:** 500 kb/s
-- **Latencia (RTT aprox):** 100 ms
+- **Downlink:** 512 kb/s
+- **Latencia (RTT aprox):** 25 ms
 - **Pérdida:** 5% de tramas
 Esto se **simula** con un **proxy/emulador de enlace** entre “satélite” (servidor) y estación de tierra (cliente).
 
 ### 3) Resiliencia y latencia — 20%
 - **Vídeo (frames):** UDP (aceptamos pérdida ocasional).
-- **Controles:** **TCP** (lo único que *no puede* perderse).
+- **Controles:** **TCP** (lo único que *no puede* perderse, se aceptan por lo tanto pequeños retrasos).
 - El sistema tolera microcortes: si no llega un frame a tiempo, se mantiene el último frame válido y se continúa.
 
 ### 4) Viabilidad técnica — 10%
 - **Servidor en C**, preparado para **AArch64** (cross-compile) y ejecución/emulación con **QEMU**.
 - Comunicación por **sockets** (UDP/TCP).
-
-### Bonus PL — 10% (si aplica)
-Punto de extensión para FPGA:
-- Acelerar **cuantización** y/o **empaquetado 2+6 bits**
-- Acelerar **preprocesado** antes de `zlib`
-- Integrar sensores internos (temperatura/IMU) como telemetría embebida en el stream
 
 ---
 
@@ -80,21 +74,21 @@ Para reproducir condiciones satelitales, el proxy actúa como intermediario:
 ## Dependencias
 
 ### Comunes
-- Linux/macOS recomendado (Windows posible con WSL2)
+- Linux/macOS recomendado (Windows posible con WSL)
 - `git`
 
 ### Servidor (C)
 - `gcc` o `clang`
-- `make` (si hay Makefile)
+- `make`
 - **zlib** (headers + runtime), p. ej. `zlib1g-dev` / `zlib-devel`
-- Cross-compile AArch64 (si aplica):
-  - `aarch64-linux-gnu-gcc` (o toolchain equivalente)
-- QEMU (si vais a emular):
+- Cross-compile AArch64:
+  - `aarch64-linux-gnu-gcc`
+- QEMU:
   - `qemu-user` / `qemu-aarch64` (o `qemu-system-aarch64` según setup)
 
 ### Cliente (Java)
 - JDK **17+** (o la versión que uséis)
-- Gradle o Maven (según el proyecto)
+- Gradle
 
 ### Proxy / Emulación
 - Proxy incluido en el repo **o**:
