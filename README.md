@@ -43,8 +43,7 @@ Punto de extensión para FPGA:
 
 ## Arquitectura
 
-<img width="881" height="281" alt="diagramaDOOMSat drawio" src="https://github.com/user-attachments/assets/99b0d7d2-314c-4d39-b359-d06c48a89c91" />
-
+<img width="881" height="281" alt="DOOMSat2" src="https://github.com/user-attachments/assets/af540a33-64c8-4f84-8db2-46629c20ed23" />
 
 
 - **Servidor (C)**: captura frame del motor, preprocesa, comprime y envía.
