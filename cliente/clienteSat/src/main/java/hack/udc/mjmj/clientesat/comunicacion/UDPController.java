@@ -13,13 +13,8 @@ import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.Inflater;
 
-static uint64_t bytesSentTotal = 0;
-static uint64_t lastPrintTime = 0;
 
 public class UDPController {
 
