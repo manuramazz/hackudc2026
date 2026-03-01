@@ -11,14 +11,14 @@ Antes de contribuir, asegúrate de tener instalados:
 
 ## 📌 Cómo contribuir
 
-### 1️⃣ Forkea el repositorio
+### Forkea el repositorio
 Haz un fork del proyecto en GitHub y clona tu copia localmente:
 
 ```sh
 git clone https://github.com/JorgeOteroPailos/hackaton
 cd competencIApp
 ```
-### 2️⃣ Crea una rama para tu contribución
+### Crea una rama para tu contribución
 Utiliza un nombre descriptivo para tu rama:
 
 ```sh
@@ -26,7 +26,7 @@ Copy
 Edit
 git checkout -b feature-nombre-mejora
 ```
-### 3️⃣ Realiza los cambios y asegúrate de que el código funcione
+### Realiza los cambios y asegúrate de que el código funcione
 Antes de hacer un commit, asegúrate de que la aplicación sigue funcionando y de que tus cambios no rompen ninguna funcionalidad:
 
 sh
@@ -42,16 +42,18 @@ Edit
   - `qemu-user` / `qemu-aarch64` (o `qemu-system-aarch64` según setup)
 
 
-# Prueba la interfaz en JavaFX
-./gradlew run
-### 4️⃣ Sigue las normas de estilo
+# Servidor
+- `.\gradlew build`
+- `.\gradlew run`
+
+### Sigue las normas de estilo
 Java: Usa convenciones estándar y formatea el código con ./gradlew format.
 Commits: Usa mensajes claros y estructurados, por ejemplo:
 sh
 Copy
 Edit
 git commit -m "feat: agregada funcionalidad de consulta de competencias"
-### 5️⃣ Envía un Pull Request (PR)
+### Envía un Pull Request (PR)
 Sube tus cambios a tu repositorio y crea un PR hacia la rama main:
 
 sh
