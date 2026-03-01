@@ -23,11 +23,12 @@ public class ClientApplication extends Application {
 
         CanvasController controller = fxmlLoader.getController();
 
-        stage.setTitle("DOOM");
+        stage.setTitle("DOOMSat");
         stage.setScene(scene);
 
         udp = new UDPController(5001);
         udp.setCanvas(controller.getCanvas());
+        udp.setController(controller);
         udp.initUDP();
 
         tcp = new TCPController(5555);

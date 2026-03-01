@@ -1,17 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.text.Font?>
 
-<AnchorPane xmlns:fx="http://javafx.com/fxml"
-            fx:controller="hack.udc.mjmj.clientesat.CanvasController">
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="640.0" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="hack.udc.mjmj.clientesat.CanvasController">
 
-    <Canvas fx:id="canvas"
-            width="640"
-            height="400"
-            AnchorPane.topAnchor="0"
-            AnchorPane.bottomAnchor="0"
-            AnchorPane.leftAnchor="0"
-            AnchorPane.rightAnchor="0"/>
+    <Canvas fx:id="canvas" height="400" width="640" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0" />
+   <ImageView fx:id="imagen" fitHeight="400.0" fitWidth="640.0" layoutY="20.0" pickOnBounds="true" preserveRatio="true" scaleY="1.12">
+      <image>
+         <Image url="@imagenes/doom.jpg" />
+      </image>
+   </ImageView>
+   <ImageView fx:id="imagenLogo" fitHeight="33.0" fitWidth="107.0" layoutX="14.0" layoutY="14.0" pickOnBounds="true" preserveRatio="true">
+      <image>
+         <Image url="@imagenes/alen.png" />
+      </image>
+   </ImageView>
+   <Label fx:id="label" layoutX="111.0" layoutY="315.0" prefHeight="70.0" prefWidth="458.0" text="... no espazo exterior" textFill="#b1a7a7">
+      <font>
+         <Font name="Bell MT Bold" size="48.0" />
+      </font>
+   </Label>
 
 </AnchorPane>

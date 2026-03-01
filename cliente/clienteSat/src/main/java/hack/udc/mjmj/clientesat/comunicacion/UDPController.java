@@ -1,5 +1,6 @@
 package hack.udc.mjmj.clientesat.comunicacion;
 
+import hack.udc.mjmj.clientesat.CanvasController;
 import hack.udc.mjmj.clientesat.utilities.PackageBuffer;
 import javafx.application.Platform;
 import javafx.scene.canvas.Canvas;
@@ -32,10 +33,16 @@ public class UDPController {
     private boolean encendido;
 
     private Canvas canvas;
+    private CanvasController controller;
+    private boolean elementosOcultos = false;
 
     public UDPController(int puerto) {
         this.puerto = puerto;
         encendido = false;
+    }
+
+    public void setController(CanvasController controller) {
+        this.controller = controller;
     }
 
     public void initUDP(){
@@ -46,6 +53,12 @@ public class UDPController {
                 packet = new DatagramPacket(new byte[1208], 1208);
                 while(encendido){
                     socket.receive(packet);
+                    if (!elementosOcultos && controller != null) {
+                        elementosOcultos = true;
+                        Platform.runLater(() -> {
+                            controller.ocultarElementos();
+                        });
+                    }
                     renderOutput();
                 }
 
@@ -127,7 +140,7 @@ public class UDPController {
         byte[] decompressed = out.toByteArray();
 
         if (decompressed.length != 160 * 100) {
-            System.out.println("CORRUPTOOOOOOOOOOO NOOOOOO!!!!!!!!!!!!! tam = "+decompressed.length);
+            System.out.println("Paquete corrupto tam = "+decompressed.length);
 
             return; // frame corrupto
         }
