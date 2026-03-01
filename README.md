@@ -64,9 +64,6 @@ Punto de extensión para FPGA:
 3. **`zlib`**: compresión sin pérdidas sobre el buffer cuantizado
 4. **UDP**: envío del frame (~4 KB típico)
 
-Notas:
-- En redes con MTU bajo, un frame puede fragmentarse a nivel IP; para enlace real se recomienda segmentar en aplicación (si no lo hacéis ya) y descartar frames incompletos.
-
 ---
 
 ## Protocolo de controles (Uplink)
@@ -80,9 +77,7 @@ Notas:
 Para reproducir condiciones satelitales, el proxy actúa como intermediario:
 - limita ancho de banda,
 - añade latencia,
-- introduce pérdida.
-
-> Alternativa válida: Linux `tc netem` (si preferís emulación a nivel SO).
+- introduce pérdida..
 
 ---
 
