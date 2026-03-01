@@ -178,7 +178,6 @@ size_t compressFrameASCII_2x2(uint32_t* frameData, uint8_t** compressedData)
 {
     int width = DOOMGENERIC_RESX;
     int height = DOOMGENERIC_RESY;
-
     int newWidth = width / 2;
     int newHeight = height / 2;
 
@@ -187,40 +186,40 @@ size_t compressFrameASCII_2x2(uint32_t* frameData, uint8_t** compressedData)
 
     int outIndex = 0;
 
-    for (int y = 0; y < height; y += 2)
-    {
-        for (int x = 0; x < width; x += 2)
-        {
+    for (int y = 0; y < height; y += 2) {
+        for (int x = 0; x < width; x += 2) {
             uint32_t sumR = 0, sumG = 0, sumB = 0;
 
-            // Sumar los 4 píxeles del bloque 2x2
-            for (int dy = 0; dy < 2; dy++)
+            for (int dy = 0; dy < 2; dy++) {
                 for (int dx = 0; dx < 2; dx++) {
                     uint32_t p = frameData[(y+dy)*width + (x+dx)];
                     sumR += (p >> 16) & 0xFF;
                     sumG += (p >> 8) & 0xFF;
                     sumB += p & 0xFF;
                 }
+            }
 
-            // Promedios
+            // Promedios promediados (div 4)
             uint8_t r = sumR >> 2;
             uint8_t g = sumG >> 2;
             uint8_t b = sumB >> 2;
 
-            // Intensidad promedio a partir de valores RGB
-            uint8_t intensity = (r + g + b) / 3; 
-            uint8_t i2 = intensity >> 6;        
+            // 1. LUMINANCIA PERCIBIDA (Más brillante para el ojo)
+            uint32_t lum = (r * 299 + g * 587 + b * 114) / 1000;
+            
+            // 2. ACLARADO EXTRA (Gamma boost manual)
+            // Esto "empuja" los colores oscuros hacia arriba
+            if (lum < 128) lum += (128 - lum) / 2; 
 
-            // Reducir RGB a 2 bits cada uno
-            uint8_t r2 = r >> 6; // 0..3
-            uint8_t g2 = g >> 6;
-            uint8_t b2 = b >> 6;
+            // 3. REDUCCIÓN CON REDONDEO (En lugar de truncar con >> 6)
+            uint8_t i2 = (lum + 31) / 64; if (i2 > 3) i2 = 3;
+            uint8_t r2 = (r + 31) / 64;   if (r2 > 3) r2 = 3;
+            uint8_t g2 = (g + 31) / 64;   if (g2 > 3) g2 = 3;
+            uint8_t b2 = (b + 31) / 64;   if (b2 > 3) b2 = 3;
 
-            // Combinamos todo en un byte
             (*compressedData)[outIndex++] = (i2 << 6) | (r2 << 4) | (g2 << 2) | b2;
         }
     }
-
     return newWidth * newHeight;
 }
 
@@ -400,7 +399,7 @@ void sendFrameUDPFragmentado(uint8_t* data, size_t dataSize) {
         } else if ((size_t)sentBytes != sizeof(struct PacketHeader) + chunkSize) {
             fprintf(stderr, "Advertencia: se enviaron %zd de %zu bytes\n", sentBytes, sizeof(struct PacketHeader) + chunkSize);
         } else {
-            //printf("Chunk %u/%u enviado, tamaño %zu bytes\n", chunkIndex, totalChunks, chunkSize);
+            printf("Chunk %u/%u enviado, tamaño %zu bytes\n", chunkIndex, totalChunks, sizeof(struct PacketHeader) + chunkSize);
         }
 
         free(packet);
@@ -456,7 +455,12 @@ void DG_DrawFrame()
   uint8_t* compressedFrame;
   size_t size = compressFrame(DG_ScreenBuffer, &compressedFrame);
   //size_t size = compressFrameDefault(DG_ScreenBuffer, &compressedFrame);
-  //("Frame comprimido a %zu bytes\n", size);
+  printf("Frame comprimido a %zu bytes\n", size);
+  printf("Contenido del frame comprimido (primeros 500 bytes): ");
+  for (size_t i = 0; i < size && i < 500; i++) {
+    printf("%02x ", compressedFrame[i]);
+  }
+  printf("\n");
   // Enviar por UDP al cliente
   sendFrameUDPFragmentado(compressedFrame, size);
 
@@ -512,7 +516,7 @@ int main(int argc, char **argv)
     }
     
     doomgeneric_Create(argc, argv);
-    uint8_t FPS = 2;
+    uint8_t FPS = 1;
     for (int i = 0; ; i++)
     {
         uint32_t frameStartTime = DG_GetTicksMs();
