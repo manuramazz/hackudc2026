@@ -51,6 +51,9 @@ static uint8_t* prevFrameData = NULL;
 
 static boolean enviarFrames = false;
 
+static uint64_t bytesSentTotal = 0;
+static uint64_t lastPrintTime = 0;
+
 // Variables para UDP y TCP
 //char HARD_IP[INET_ADDRSTRLEN]; // IP del cliente para UDP
 int udpSock;                  
@@ -113,7 +116,7 @@ static void handleKeyInput(void)
             // Si quieres, podrías cerrar aquí, pero mejor solo loguear
             return;
         }
-
+        bytesSentTotal += n;
         if (n == 0) {
             // Conexión cerrada por el peer
             printf("TCP cerrado por el cliente\n");
@@ -395,7 +398,7 @@ void sendFrameUDP(uint8_t* data, size_t dataSize) {
 void sendFrameUDPFragmentado(uint8_t* data, size_t dataSize) {
     // Calcular número de paquetes
     uint16_t totalChunks = (dataSize + MAX_PAYLOAD - 1) / MAX_PAYLOAD;
-    printf("Enviando frame %u en %u chunks, total bytes=%zu\n", globalFrameId, totalChunks, dataSize);
+    //printf("Enviando frame %u en %u chunks, total bytes=%zu\n", globalFrameId, totalChunks, dataSize);
 
     for (uint16_t chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
         size_t offset = chunkIndex * MAX_PAYLOAD;
@@ -419,7 +422,9 @@ void sendFrameUDPFragmentado(uint8_t* data, size_t dataSize) {
         } else if ((size_t)sentBytes != sizeof(struct PacketHeader) + chunkSize) {
             fprintf(stderr, "Advertencia: se enviaron %zd de %zu bytes\n", sentBytes, sizeof(struct PacketHeader) + chunkSize);
         } else {
-            printf("Chunk %u/%u enviado, tamaño %zu bytes\n", chunkIndex, totalChunks, sizeof(struct PacketHeader) + chunkSize);
+            //printf("Chunk %u/%u enviado, tamaño %zu bytes\n", chunkIndex, totalChunks, sizeof(struct PacketHeader) + chunkSize);
+            bytesSentTotal += sizeof(struct PacketHeader) + chunkSize;
+            //printf("bytes enviados: %u", bytesSentTotal);
         }
 
         free(packet);
@@ -475,8 +480,8 @@ void DG_DrawFrame()
   uint8_t* compressedFrame;
   size_t size = compressFrame(DG_ScreenBuffer, &compressedFrame);
   //size_t size = compressFrameDefault(DG_ScreenBuffer, &compressedFrame);
-  printf("Frame comprimido a %zu bytes\n", size);
-  printf("\n");
+  //printf("Frame comprimido a %zu bytes\n", size);
+  //printf("\n");
   // Enviar por UDP al cliente
   sendFrameUDPFragmentado(compressedFrame, size);
 
@@ -544,6 +549,15 @@ int main(int argc, char **argv)
         uint32_t sleepTime = (1000 / FPS) - frameTime;
         if (sleepTime > 0) {
             DG_SleepMs(sleepTime);
+        }
+        uint32_t now = DG_GetTicksMs();
+
+        if (now - lastPrintTime >= 1000) {
+            double mbps = (bytesSentTotal * 8.0) / 1000.0;
+            //printf("sexo: %.2f\n", bytesSentTotal);
+            printf("Bandwidth: %.2f Kbps\n", mbps);
+            bytesSentTotal = 0;
+            lastPrintTime = now;
         }
         //printf("Tick %d: DG_ScreenBuffer=%p\n espera=%d ms\n", i, (void*)DG_ScreenBuffer, sleepTime);
     }
