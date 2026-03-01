@@ -15,9 +15,9 @@ public class TCPController {
 
     private final int puerto;
 
-    private final static String ipSat = "10.40.206.49";
+    private final static String ipSat = "10.64.151.20";
 
-    private Socket tcpSocket;
+    private ServerSocket tcpSocket;
     private Socket satSocket;
     private PrintWriter send;
 
@@ -30,9 +30,16 @@ public class TCPController {
     public void initTCPServer(){
         new Thread(() -> {
             try {
-                satSocket = new Socket(ipSat,puerto);
-                send = new PrintWriter(satSocket.getOutputStream(), true);
-                System.out.println("SOCKET TCP INICIADO Y CONECTADO CON EXITO");
+                tcpSocket = new ServerSocket(puerto);
+                System.out.println("Servidor TCP escuchando en puerto " + puerto + "...");
+
+                satSocket = tcpSocket.accept();
+                System.out.println("Cliente conectado desde " + satSocket.getInetAddress());
+
+                send = new PrintWriter(satSocket.getOutputStream(), false);
+
+                System.out.println("SOCKET TCP INICIADO Y CONEXIÓN ESTABLECIDA CON ÉXITO");
+
             }catch(IOException e){e.printStackTrace();}
         }).start();
     }
@@ -44,7 +51,8 @@ public class TCPController {
                 KeyHandler.keyStates.put(keyCode, true);
                 if (send!=null){
                     send.println(Arrays.toString(DoomKeyMapper.buildPacket(event, KeyHandler.keyStates.get(keyCode))));
-                    System.out.println(event.getCode().toString() +" (in doom: "+DoomKeyMapper.convert(event)+")");
+                    send.flush();
+                    System.out.println(Arrays.toString(DoomKeyMapper.buildPacket(event, KeyHandler.keyStates.get(keyCode))));
                 }
             }
         });
@@ -53,7 +61,8 @@ public class TCPController {
             KeyHandler.keyStates.put(keyCode, false);
             if (send!=null){
                 send.println(Arrays.toString(DoomKeyMapper.buildPacket(event, KeyHandler.keyStates.get(keyCode))));
-                System.out.println(event.getCode().toString() +" (in doom: "+DoomKeyMapper.convert(event)+")");
+                send.flush();
+                System.out.println(Arrays.toString(DoomKeyMapper.buildPacket(event, KeyHandler.keyStates.get(keyCode))));
             }
         });
     }
