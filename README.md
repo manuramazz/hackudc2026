@@ -73,11 +73,28 @@ Para reproducir condiciones satelitales, el proxy actúa como intermediario:
 
 ## Dependencias
 
-### Comunes
-- Linux/macOS recomendado (Windows posible con WSL)
-- `git`
-
 ### Servidor (C)
+
+- gcc-aarch64-linux-gnu
+
+- g++-aarch64-linux-gnu
+
+- binutils-aarch64-linux-gnu
+
+- debootstrap
+
+- libsdl2-dev
+
+- zlib1g-dev
+
+- libx11-dev
+
+- libc6-dev
+
+- zlib1g
+
+- libx11-6
+
 - `gcc` o `clang`
 - `make`
 - **zlib** (headers + runtime), p. ej. `zlib1g-dev` / `zlib-devel`
@@ -85,10 +102,13 @@ Para reproducir condiciones satelitales, el proxy actúa como intermediario:
   - `aarch64-linux-gnu-gcc`
 - QEMU:
   - `qemu-user` / `qemu-aarch64` (o `qemu-system-aarch64` según setup)
+ 
+- El motor del juego proviene del repositorio https://github.com/ozkl/doomgeneric
 
 ### Cliente (Java)
 - JDK **17+** (o la versión que uséis)
 - Gradle
+- Javafx
 
 ### Proxy / Emulación
 - Proxy incluido en el repo **o**:
@@ -111,7 +131,7 @@ cd servidor/doomgeneric/doomgeneric
 
 make CC=aarch64-linux-gnu-gcc   CFLAGS="--sysroot=$SYSROOT -isystem $SYSROOT/usr/include -isystem $SYSROOT/usr/include/aarch64-linux-gnu -isystem $SYSROOT/usr/include/SDL2 -ggdb3 -Os -Wall -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE"   LDFLAGS="--sysroot=$SYSROOT -Wl,--gc-sections"   LIBS="-L$SYSROOT/usr/lib/aarch64-linux-gnu -lSDL2 -lz -lm -lc"
 
-qemu-aarch64 -L /opt/arm64-rootfs ./doomgeneric -iwad ../Doom1.WAD -warp 1 1
+qemu-aarch64 -L /opt/arm64-rootfs ./doomgeneric -iwad [tu .wad] -warp 1 1
 ```
 ### 2) Ejecutar el cliente (Java)
 Desde la terminal en el directorio del proyecto
@@ -120,12 +140,8 @@ Desde la terminal en el directorio del proyecto
 .\gradlew run
 ```
 ### 3) Ejecutar el proxy (solo en caso de querer simularse condiciones de prueba)
-Tiene que ser ejecutado en el directorio /proxy en una distribución linux.
-En firewall.sh es preciso ajustar las direcciones IP
 ```bash
-chmod +x firewall.sh simulacion.sh
-./firewall.sh
-./simulación.sh
+pene
 ```
 
 ## Rendimiento esperado (orden de magnitud)
@@ -252,3 +268,11 @@ Aunque el sistema es funcional, existen múltiples líneas claras de mejora:
 - Parametrización dinámica del enlace desde la propia aplicación.
 
 DOOMSat se concibe como una **plataforma experimental abierta**, no como un producto cerrado.
+
+
+
+Dependencias adicionales:
+
+El motor del juego altamente portable proviene del repositorio https://github.com/ozkl/doomgeneric
+
+Se requiere de un .wad del Doom para poder jugar 
