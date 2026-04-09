@@ -10,7 +10,7 @@ DOOMSat consiste en la simulación del envío de datos de la Tierra a un satéli
 - Se le envía por TCP el input para el videojuego. 
 - Envía, por UDP, los frames del juego, comprimidos.
 
-### 2. Proxy (Java)
+### 2. Proxy (Shell)
 - Recoge las llamadas TCP del cliente y las redirecciona al servidor.
 - Recoge las llamadas UDP del servidor y las redirecciona al cliente.
 - Simula las fallas que supondría la conexión entre ambos alejados extremos.
